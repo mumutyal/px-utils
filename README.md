@@ -5,9 +5,10 @@ Prerequisites
 1) Set the cluster config using following command
 
 export KUBECONFIG="Path to the config yaml file"
-
+cd px_debug
 Once the cluster config is set run the scirpt  with or with out arguments. 
 If you run with out arguments it collects  logs from all the availble workere nodes (example below)
+
 
 sudo ./PX_Log_Collect.sh 
 
