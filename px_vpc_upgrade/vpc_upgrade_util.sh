@@ -23,7 +23,7 @@ echo "${CLUSTER_CHECK}"
 [[ -z "$CLUSTER_CHECK" ]] && { echo "Unable to determine cluster name, Either the cluser does not exist or kube config is not set."; exit; }
 [[ ${#CLUSTER_POOL[@]} -gt 1 ]] && { WORKER_POOL="--worker-pool ${CLUSTER_POOL[1]}"; WORKER_POOL_NAME="${CLUSTER_POOL[1]}";}
 
-echo "Gathering information for cluster ${CLUSTER} and worker pool ${WORKER_POOL_NAME}..."
+echo "Gathering information for cluster ${CLUSTER} ..."
 VPC_ID=$(ic cs cluster get --cluster $CLUSTER --json | jq -r '.vpcs[0]')
 WORKER_IDS=$(ic cs workers --cluster $CLUSTER $WORKER_POOL --json | jq -r '.[] | .id')
 CLUSTER_ID=$(ic cs cluster get --cluster ${CLUSTER} --json | jq -r '.id')
@@ -60,7 +60,7 @@ LONG_SLEEP_TIME=120
          sleep $SLEEP_TIME
          repeat=$(( $repeat + 1 ))
          if [ $repeat == $LIMIT ]; then
-           echo "Upgrade is not triggered from catalog ..Exiting ... Run the script again and trigger the upgrade from catalog"
+           echo "Upgrade is not triggered from catalog ..Exiting ... Run the script again and trigger the upgrade from Dashboard"
            exit 1
          fi
    done
@@ -176,11 +176,10 @@ do
    IFS='-' read -r -a WORKER_VALS <<< "$id"
    zone=$(ic cs worker get --worker $id --cluster $CLUSTER --json | jq -r .location)
    volid_perworker=$(ic is vols --json | jq -r --arg WORKER_NAME "$id" '.[]|select(.volume_attachments[] .instance.name==$WORKER_NAME) | .id')
-   echo "volid_perworker ${volid_perworker[*]}"
+   echo "volid :${volid_perworker[*]} is attched to the worker :${id}"
    vol_ids[volindex]=${volid_perworker[@]}
    ((volindex++))
 done
-echo "vol_ids ${vol_ids[*]}"
 
 #### Wait for the Portowrx pods to become up and availble
 
