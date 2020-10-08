@@ -6,7 +6,7 @@ shopt -s expand_aliases
 alias ic="ibmcloud"
 
 [[ -z "$1" ]] && { echo "Cluster name is empty, specify a cluster name."; exit; }
-#vol_ids=()
+vol_ids=()
 #for ((argindex=2,index=0; argindex<=$#; argindex++,index++)); do
 #  vol_ids[index]=${!argindex}
 #done
