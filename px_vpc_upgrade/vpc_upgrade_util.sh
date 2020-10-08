@@ -79,16 +79,13 @@ LONG_SLEEP_TIME=120
       worker_state=$(echo $worker | awk '{print $5}')
       if [[ $worker_state == "Ready" ]]; then
          worker_rdy_cnt=$(( $worker_rdy_cnt + 1 ))
-         echo "worker_rdy_cnt $worker_rdy_cnt"
-         echo "worker_state = $worker_state"
-         echo "worker_cnt = $worker_cnt"
          if  [ $worker_rdy_cnt -eq $worker_cnt ]; then
             echo "Upgrade is done and All worker nodes are in ready state...."
             ALLREADY=1
             break
          fi
        else
-         echo "One or more workers are not in ready state .... waiting for new worker provision to complete"
+         echo "One or more workers are not in ready state  Total no of workers :$worker_cnt.. Avialble workers :$worker_rdy_cnt.... waiting for new worker provision to complete"
          sleep $SLEEP_TIME
          repeat=$(( $repeat + 1 ))
       fi
