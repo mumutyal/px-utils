@@ -95,7 +95,7 @@ LONG_SLEEP_TIME=120
 }
 
 restartPortworxService () {
-
+   NAMESPACE="ibm-system"
    WORKER_IP=$1
    echo " Restarting the Portworx Service on worker node $WORKER_IP"
    JOB_NAME=$(LC_CTYPE=C cat /dev/urandom | base64 | tr -dc a-z0-9 | fold -w 32 | head -n 1)
@@ -206,6 +206,7 @@ do
              ic cs storage attachment create --cluster ${CLUSTER_ID} --worker ${id} --volume ${vol_id}
              sleep 30
              restartPortworxService $id
+             break
            else
              echo "Worker have volume attchements $id"
           fi
