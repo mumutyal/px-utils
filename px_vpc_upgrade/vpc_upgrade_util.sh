@@ -50,7 +50,7 @@ LONG_SLEEP_TIME=120
      for worker in "${workers[@]}"; do
          worker_state=$(echo $worker | awk '{print $5}')
          if [[ $worker_state != "Ready" ]]; then
-             echo "The upgrade started"
+             echo "The upgrade/replace triggered... Waiting for the new workers provision...."
              UPGRADE_STARTED=1             
              break
         else
