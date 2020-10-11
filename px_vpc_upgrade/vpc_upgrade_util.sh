@@ -189,11 +189,10 @@ waitforportworxpods
 ##Get all the volume ids in the cluster
 index="0"
 WORKER_IDS=$(ic cs workers --cluster $CLUSTER $WORKER_POOL --json | jq -r '.[] | .id')
-for vol_id in ${vol_ids}
-do
+for vol_id in ${vol_ids[@]}; do
   volume_attch_check=$(ic is vol ${vol_id} --json | jq -r '.volume_attachments[] .instance | .name')
   if [ -z "$volume_attch_check" ]; then
-     echo "Volume is not attched to any node"
+     echo "Volume: ${vol_id} is not attched to any node"
       for id in ${WORKER_IDS}
       do
           IFS='-' read -r -a WORKER_VALS <<< "$id"
@@ -211,7 +210,7 @@ do
           fi
         done
     else
-      echo "Volume is already attched"
+      echo "Volume : {$vol_id} is already attched"
     fi
 done
          
