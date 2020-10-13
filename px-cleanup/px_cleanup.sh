@@ -1,14 +1,14 @@
 #!/bin/bash
 
 TALISMAN_IMAGE=portworx/talisman
-TALISMAN_TAG=1.1.0
+TALISMAN_TAG=latest
 WIPE_CLUSTER="--wipecluster"
 MAX_RETRIES=60
 TIME_BEFORE_RETRY=5 #seconds
 JOB_NAME=talisman
 KUBECTL_EXTRA_OPTS=""
 WIPER_IMAGE=portworx/px-node-wiper
-WIPER_TAG=2.5.0
+WIPER_TAG=latest
 
 
 logmessage() {
@@ -42,7 +42,8 @@ ask() {
     N*|n*) return 1 ;;
     * )    echo "invalid reply: $reply"; return 1 ;;
   esac
-}
+} 
+    CLUSTER_NAME=kubectl -n kube-system get cm cluster-info -o jsonpath='{.data.cluster-config\.json}' | jq -r '.name'
 
     if ! ask "The operation will delete Portworx components and metadata from the cluster. Do you want to continue?" N; then
           logmessage "Aborting Portworx wipe from the cluster..."
@@ -245,4 +246,8 @@ helm_release=$(helm ls -A --output json | jq -r '.[]|select(.name=="portworx") |
 helm uninstall portworx || _rc=$?
 if [ $_rc -ne 0 ]; then
   logmessage "error removing the helm relese"
+  exit 1;
 fi
+echo "Removing the Service from the catalog"
+Bx_PX_svc_name=$(ibmcloud resource service-instances --service-name portworx --output json | jq -r --arg CLUSTERNAME $CLUSTER_NAME '.[]|select((.parameters.clusters==$CLUSTERNAME)) | .name')
+ibmcloud resource service-instance-delete "${Bx_PX_svc_name}" -f
