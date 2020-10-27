@@ -53,7 +53,7 @@ waitforthenode () {
 
 DESIREDSTATE="deployed"
 ACTUALSTATE=""
-LIMIT=20
+LIMIT=90
 SLEEP_TIME=60
 
    ALLREADY=0
@@ -61,8 +61,6 @@ SLEEP_TIME=60
 
    worker_id=$1
    repeat=0
-  ## Here wait for the 1 hour as the worker proviison takes long time
-   LIMIT=90
 
    while [ $repeat -lt $LIMIT ] && [ "$ACTUALSTATE" != "$DESIREDSTATE" ]; do
       ACTUALSTATE=$(ic cs worker get --cluster   $CLUSTER  --worker $worker_id --json  | jq -r .lifecycle.actualState)
@@ -152,7 +150,7 @@ waitfortheworkerdelete() {
 
     NODE_DEPLOYING=0
     DESIRED=1
-    LIMIT=20
+    LIMIT=90
     SLEEP_TIME=60
 
     repeat=0
