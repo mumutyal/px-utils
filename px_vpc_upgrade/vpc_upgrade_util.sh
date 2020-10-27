@@ -2,6 +2,7 @@
 
 # Usage: vpc_upgrade_util.sh  clustername  command_name  workerids
 #example : ./vpc_upgrade_util.sh  mycluster  replace/upgrade  workerid1 workerid2 ....
+# If the worker ids not provided then all the workers in the cluster will be replaced/upgraded
 #
 shopt -s expand_aliases
 alias ic="ibmcloud"
