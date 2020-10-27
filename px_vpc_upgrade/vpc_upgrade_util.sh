@@ -6,6 +6,8 @@
 shopt -s expand_aliases
 alias ic="ibmcloud"
 
+CLUSTER=$1
+
 [[ -z "$1" ]] && { echo "Cluster name is empty, specify a cluster name."; exit; }
 [[ -z "$2" ]] && { echo "Command name is empty. specify the command"; exit; }
 vol_ids=()
@@ -24,7 +26,7 @@ if [ $#  -ge 3 ]; then
   done
 else
   echo "Worker ids are not specified upgrade/replace done for all workers"
-  WORKER_IDS=$(ic cs workers --cluster $CLUSTER $WORKER_POOL --json | jq -r '.[] | .id')
+  WORKER_IDS=$(ic cs workers --cluster $CLUSTER  --json | jq -r '.[] | .id')
 fi
 
 echo "worker ids = ${WORKER_IDS[*]}"
@@ -35,17 +37,9 @@ echo "worker ids = ${WORKER_IDS[*]}"
 
 
 
-IFS='/' read -r -a CLUSTER_POOL <<< "$1"
-CLUSTER=${CLUSTER_POOL[0]}
-COUNT=${2:-1}
-PROFILE=${3:-general-purpose}
-SIZE=${4:-100}
-WORKER_POOL=""
-WORKER_POOL_NAME="all"
 CLUSTER_CHECK=$(kubectl -n kube-system get cm cluster-info -o jsonpath='{.data.cluster-config\.json}' | jq -r '.name')
 echo "${CLUSTER_CHECK}"
 [[ -z "$CLUSTER_CHECK" ]] && { echo "Unable to determine cluster name, Either the cluser does not exist or kube config is not set."; exit; }
-[[ ${#CLUSTER_POOL[@]} -gt 1 ]] && { WORKER_POOL="--worker-pool ${CLUSTER_POOL[1]}"; WORKER_POOL_NAME="${CLUSTER_POOL[1]}";}
 
 echo "Gathering information for cluster ${CLUSTER} ..."
 VPC_ID=$(ic cs cluster get --cluster $CLUSTER --json | jq -r '.vpcs[0]')
@@ -165,7 +159,7 @@ waitfortheworkerdelete() {
 
     #### retrive the new worker id 
     while [ $NODE_DEPLOYING -ne $DESIRED  ] && [  $repeat -lt $LIMIT ]; do
-       WORKER_IDS=$(ic cs workers --cluster $CLUSTER $WORKER_POOL --json | jq -r '.[] | .id')
+       WORKER_IDS=$(ic cs workers --cluster $CLUSTER  --json | jq -r '.[] | .id')
        for id in ${WORKER_IDS}
        do
 	   IFS='-' read -r -a WORKER_VALS <<< "$id"
