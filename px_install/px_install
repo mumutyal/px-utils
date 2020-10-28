@@ -11,17 +11,10 @@ shopt -s expand_aliases
 alias ic="ibmcloud"
 
 
-IFS='/' read -r -a CLUSTER_POOL <<< "$1"
-CLUSTER=${CLUSTER_POOL[0]}
-COUNT=${2:-1}
-PROFILE=${3:-general-purpose}
-SIZE=${4:-100}
-WORKER_POOL=""
-WORKER_POOL_NAME="all"
+CLUSTER=$1
 CLUSTER_CHECK=$(kubectl -n kube-system get cm cluster-info -o jsonpath='{.data.cluster-config\.json}' | jq -r '.name')
 echo "${CLUSTER_CHECK}"
 [[ -z "$CLUSTER_CHECK" ]] && { echo "Unable to determine cluster name, Either the cluser does not exist or kube config is not set."; exit; }
-[[ ${#CLUSTER_POOL[@]} -gt 1 ]] && { WORKER_POOL="--worker-pool ${CLUSTER_POOL[1]}"; WORKER_POOL_NAME="${CLUSTER_POOL[1]}";}
 
 echo "Gathering information for cluster ${CLUSTER} ..."
 CLUSTER_ID=$(ic cs cluster get --cluster ${CLUSTER} --json | jq -r '.id')
@@ -29,31 +22,25 @@ CLUSTER_ID=$(ic cs cluster get --cluster ${CLUSTER} --json | jq -r '.id')
 
 APIKEY_NAME="pxtmpapikey"
 
+#create-attach-volumes-workers () {
+
+ #     WORKER_IDS=$(ic cs workers --cluster $CLUSTER  --json | jq -r '.[] | .id')
+ #     for id in ${WORKER_IDS}
+ #     do
+#	   IFS='-' read -r -a WORKER_VALS <<< "$id"
+#	   zone=$(ic cs worker get --worker $id --cluster $CLUSTER --json | jq -r .location)
+
+
 px_svc_name=$(ic resource service-instances --service-name portworx --output json | jq -r --arg CLUSTERNAME $CLUSTER '.[]|select((.parameters.clusters==$CLUSTERNAME)) | .name')
 [[ ! -z "$px_svc_name" ]] && { echo "Error: Portworx service '$px_svc_name' is already installed on cluster $CLUSTER. Setup your kube config to a cluster which does not have portworx." ; exit; }
 
 read -p "About to install portworx on cluster $CLUSTER. Enter y to continue: " continue
 [[ ! "y" = "$continue" ]] && exit
 
-read -p "Add volumes to worker nodes?  Enter y for yes: " add_vols
-if [[ "y" = "$add_vols" ]]; then
-  worker_pool=($(ic cs worker-pool ls --cluster $CLUSTER --json | jq -r '.[] | .poolName'))
-  if [[ ${#worker_pool[@]} -gt 1 ]]; then
-    worker_pool[99]="all"
-    for key in ${!worker_pool[@]}; do
-      printf -v wp '%s=%s, ' $key "${worker_pool[key]}"
-      wp_list+=$wp
-    done
-    read -p "Add storage to worker pool. Enter worker pool number [${wp_list}]: " selected_wp_num
-  else
-    selected_wp=${worker_pool[0]}
-  fi
-  [[ -z $selected_wp_num ]] && selected_wp_num="99"
-  echo "Adding storage to worker pool ${worker_pool[selected_wp_num]}."
-  [[ "99" = $selected_wp_num ]] && wp="" || wp="/${worker_pool[selected_wp_num]}"
-  # the parameter to the create function is cluster-name/worker pool. If no worker pool is passed in then volumes are added to all worker pools.
-  create-attach-volumes-workers "${CLUSTER}${wp}"
-fi
+#read -p "Add volumes to worker nodes?  Enter y for yes: " add_vols
+#if [[ "y" = "$add_vols" ]]; then
+#  create-attach-volumes-workers 
+#fi
 
 echo "Gathering information for portworx service..."
 px_region=$(ic cs cluster get --cluster ${CLUSTER} --json | jq -r '.region')
@@ -101,7 +88,7 @@ uid=$(printf "%s" "$uid" | base64)
 pwd=$(printf "%s" "$pwd" | base64)
 
 echo "Creating etcd secret in the kube-system namespace..."
-cat <<EOF | kubectl apply -f -
+(cat << EOF 
 ---
 apiVersion: v1
 kind: Secret
@@ -113,8 +100,11 @@ data:
   ca.pem: ${cert}
   username: ${uid}
   password: ${pwd}
-
 EOF
+) | if ! kubectl create -f - 2>&1 > /dev/null; then
+    echo "unable to create Secrets.. exiting ....."
+    exit 1
+fi
 
 target_group=$(ic target --output json | jq -r '.resource_group.name // empty')
 [[ -z "${target_group}" ]] && target_group="default"
