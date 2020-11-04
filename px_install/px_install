@@ -86,6 +86,11 @@ uid=${uid_tmp#*//}
 cert=$(ic resource service-keys --output json | jq -r --arg crn "$crn" '.[] | select(.source_crn==$crn) | .credentials.connection.grpc.certificate.certificate_base64')
 uid=$(printf "%s" "$uid" | base64)
 pwd=$(printf "%s" "$pwd" | base64)
+pwd_join_string=`echo $pwd | sed 's/\\n//g'`
+IFS=' ' read -ra  string_array <<< "$pwd_join_string"
+pwd="${string_array[0]}${string_array[1]}"
+
+
 
 echo "Creating etcd secret in the kube-system namespace..."
 (cat << EOF 
