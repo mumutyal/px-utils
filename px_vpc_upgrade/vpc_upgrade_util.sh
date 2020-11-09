@@ -32,6 +32,20 @@ fi
 
 echo "worker ids = ${WORKER_IDS[*]}"
 
+##Check JQ is intalled ot not 
+
+if ! which jq &>/dev/null
+then
+        echo "Jq is not installed... exiting"
+	exit 1
+fi
+
+##Check ibmcloud instaled or not
+if ! which ic &>/dev/null
+then
+        echo "IBM Cloud is not installed. Please install ibmcloud..... exiting"
+	exit 1
+fi
 
 
 
@@ -197,8 +211,21 @@ executereplaceorupgrade () {
         echo "Volume: ${vol_id} is not attched to any node"
         zone=$(ic cs worker get --worker $id --cluster $CLUSTER --json | jq -r .location) 
         echo "Attaching the volume ....cluster $CLUSTER_ID worker ${id} volid ${vol_id}"
-        ic cs storage attachment create --cluster ${CLUSTER_ID} --worker ${provisioning_worker_id} --volume ${vol_id}
-        sleep 30
+	volume_attched=""
+	retry_count=0
+	while [  $retry_count -le 3 ]
+        do
+          ic cs storage attachment create --cluster ${CLUSTER_ID} --worker ${provisioning_worker_id} --volume ${vol_id}
+	  sleep 10
+          volume_attched=$(ic is vol ${vol_id} --json | jq -r '.volume_attachments[] .instance | .name')
+	  if [ -z "$volume_attched" ]; then
+                echo "Volume attchment failed .. retrying again"
+                ((retry_count++))
+          else
+                echo "Volume ${vol_id} is attached to the worker ${id}"
+                break
+          fi
+        done	
         restartPortworxService $provisioning_worker_id
     fi
    done
