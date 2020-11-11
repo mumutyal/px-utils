@@ -1,4 +1,4 @@
-# px-debug
+# px-cleanup
 
 The PX Cleanup script  works in the following way.
 
