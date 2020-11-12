@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Usage: vpc_upgrade_util.sh  clustername  command_name  workerids
-#example : ./vpc_upgrade_util.sh  mycluster  replace/upgrade  workerid1 workerid2 ....
+#example : ./vpc_upgrade_util.sh  mycluster  replace/upgrade  worker/worker-pool (workerid1 workerid2) / (worker-pool-id1 worker-pool-id2) ....
 # If the worker ids not provided then all the workers in the cluster will be replaced/upgraded
 #
 shopt -s expand_aliases
@@ -20,15 +20,26 @@ else
         exit 1
 fi
 
-if [ $#  -ge 3 ]; then
-  for ((argindex=3,index=0; argindex<=$#; argindex++,index++)); do
-	 echo "Worker id = $argindex"
-      WORKER_IDS[index]=${!argindex}
-  done
-else
-  echo "Worker ids are not specified upgrade/replace done for all workers"
-  WORKER_IDS=$(ic cs workers --cluster $CLUSTER  --json | jq -r '.[] | .id')
-fi
+  if [[ "$3" == "worker" || $3 == "worker-pool" ]] ; then
+    if [ $#  -gt 3 ]; then
+      for ((argindex=4,index=0; argindex<=$#; argindex++,index++)); do
+	    if [[  $3 == "worker-pool" ]] ; then
+	      WORKER_IDS[index]=$(ic cs workers --cluster $CLUSTER --worker-pool ${!argindex} --json | jq -r '.[] | .id')
+	      len=${#WORKER_IDS[@]}
+	      index=$(( len + index ))
+	    else
+              WORKER_IDS[index]=${!argindex}
+	      ((index++))
+	    fi
+      done
+    else
+       echo "Usage: vpc_upgrade_util.sh  clustername command_name  workerid1 workerid2 ......"
+       exit 1
+    fi
+  else
+     echo "Worker ids/worker pools  are not specified upgrade/replace done for all workers"
+     WORKER_IDS=$(ic cs workers --cluster $CLUSTER  --json | jq -r '.[] | .id')
+  fi
 
 echo "worker ids = ${WORKER_IDS[*]}"
 
@@ -41,7 +52,7 @@ then
 fi
 
 ##Check ibmcloud instaled or not
-if ! which ic &>/dev/null
+if ! which ibmcloud &>/dev/null
 then
         echo "IBM Cloud is not installed. Please install ibmcloud..... exiting"
 	exit 1
@@ -240,7 +251,7 @@ for id in ${WORKER_IDS}
 do
    IFS='-' read -r -a WORKER_VALS <<< "$id"
    echo "worker id : $id"
-   zone=$(ic cs worker get --worker $id --cluster $CLUSTER --json | jq -r .location)
+   zone=$(ic ks worker get --worker $id --cluster $CLUSTER --json | jq -r .location)
    volid_perworker=$(ic is vols --json | jq -r --arg WORKER_NAME "$id" '.[]|select(.volume_attachments[] .instance.name==$WORKER_NAME) | .id')
    echo "volid :${volid_perworker[*]} is attched to the worker :${id}"
    vol_ids[volindex]=${volid_perworker[@]}
