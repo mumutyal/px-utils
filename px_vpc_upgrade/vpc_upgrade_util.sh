@@ -58,7 +58,7 @@ then
 	exit 1
 fi
 
-
+px_label_check=""
 
 
 
@@ -90,8 +90,13 @@ SLEEP_TIME=60
    while [ $repeat -lt $LIMIT ] && [ "$ACTUALSTATE" != "$DESIREDSTATE" ]; do
       ACTUALSTATE=$(ic cs worker get --cluster   $CLUSTER  --worker $worker_id --json  | jq -r .lifecycle.actualState)
       DESIREDSTATE=$(ic cs worker get --cluster   $CLUSTER  --worker $worker_id --json  | jq -r .lifecycle.desiredState)
+      worker_ip=$(ic cs worker get --cluster   $CLUSTER  --worker $worker_id --json  | jq -r .[] | .ipAddress)
       if [[ $ACTUALSTATE == "Deployed" ]]; then
             echo "New worker Upgrade/Replace  is done and All worker nodes are in ready state...."
+            if [ ! -z "${px_label_check}" ]; then
+               echo "Worker is  labled to restrict PX pods"
+	       kubectl label node $worker_ip px/enabled=false
+             fi
        else
          echo "The new  worker: $worker_id still in proviisoning state.... waiting for new worker provision to complete"
       fi
@@ -183,8 +188,8 @@ waitfortheworkerdelete() {
 
     #### retrive the new worker id 
     while [ $NODE_DEPLOYING -ne $DESIRED  ] && [  $repeat -lt $LIMIT ]; do
-       WORKER_IDS=$(ic cs workers --cluster $CLUSTER  --json | jq -r '.[] | .id')
-       for id in ${WORKER_IDS}
+       WORKER_IDS_NEW=$(ic cs workers --cluster $CLUSTER  --json | jq -r '.[] | .id')
+       for id in ${WORKER_IDS_NEW}
        do
 	   IFS='-' read -r -a WORKER_VALS <<< "$id"
 	   zone=$(ic cs worker get --worker $id --cluster $CLUSTER --json | jq -r .location)
@@ -212,7 +217,9 @@ executereplaceorupgrade () {
     
     waitfortheworkerdelete
     waitforthenode  $provisioning_worker_id
-    waitforportworxpods
+    if [  -z "${px_label_check}" ]; then
+      waitforportworxpods
+    fi
 
     ##Check broken volumes and  reattch to the worker
     index="0"
@@ -227,7 +234,6 @@ executereplaceorupgrade () {
 	while [  $retry_count -le 3 ]
         do
           ic cs storage attachment create --cluster ${CLUSTER_ID} --worker ${provisioning_worker_id} --volume ${vol_id}
-	  sleep 10
           volume_attched=$(ic is vol ${vol_id} --json | jq -r '.volume_attachments[] .instance | .name')
 	  if [ -z "$volume_attched" ]; then
                 echo "Volume attchment failed .. retrying again"
@@ -237,7 +243,9 @@ executereplaceorupgrade () {
                 break
           fi
         done	
-        restartPortworxService $provisioning_worker_id
+	 if [ -z "${px_label_check}" ]; then
+          restartPortworxService $provisioning_worker_id
+	 fi
     fi
    done
 }
@@ -247,7 +255,7 @@ executereplaceorupgrade () {
 
 #####Before upgrade bring the volume ids using the worker id
 volindex=0
-for id in ${WORKER_IDS}
+for id in "${WORKER_IDS[@]}"
 do
    IFS='-' read -r -a WORKER_VALS <<< "$id"
    echo "worker id : $id"
@@ -257,6 +265,7 @@ do
    vol_ids[volindex]=${volid_perworker[@]}
    ((volindex++))
   sleep 20
+  px_label_check=$(kubectl get nodes -l px/enabled=false -o json |  grep  $id)
   ic cs worker $command_name  --cluster  $CLUSTER --worker $id
   echo "The worker being deleted waiting for the new worker ............"
   executereplaceorupgrade 
